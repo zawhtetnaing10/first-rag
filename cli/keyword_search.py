@@ -8,20 +8,14 @@ import inverted_index
 def keyword_search(query, inv_index):
     # Runs from root
     movie_file_path = "data/movies.json"
-    stop_words_path = "data/stopwords.txt"
 
     try:
-        with open(movie_file_path, 'r') as f, open(stop_words_path, 'r') as s:
+        with open(movie_file_path, 'r') as f:
             # Load movies
             data = json.load(f)
-            movie_list = data['movies']
-
-            # Load stop words
-            stop_words_content = s.read()
-            stop_words = stop_words_content.splitlines()
 
             # Process the query token.
-            match_query_tokens = process_text(query, stop_words)
+            match_query_tokens = process_text(query)
 
             # Search result
             # result = []
@@ -84,7 +78,7 @@ def keyword_search(query, inv_index):
 
 
 # Set up text processing
-def process_text(text: str, stopwords):
+def process_text(text: str):
 
     # Case sensitivity
     case_insensitive = text.lower()
@@ -94,16 +88,23 @@ def process_text(text: str, stopwords):
     removed_punctuation = case_insensitive.translate(trans_table)
 
     # Tokenization
-    tokens = list(filter(lambda token: len(token) >
-                  0, removed_punctuation.split(" ")))
+    tokens = removed_punctuation.split()
 
-    # Remove stop words
-    stop_words_removed = list(
-        filter(lambda token: token not in stopwords, tokens))
+    # Load stop words
+    stop_words_path = "data/stopwords.txt"
+    with open(stop_words_path, 'r') as s:
 
-    # Reduce each token to it's root.
-    stemmer = PorterStemmer()
-    stemmed_tokens = list(
-        map(lambda token: stemmer.stem(token), stop_words_removed))
+        # Load stop words
+        stop_words_content = s.read()
+        stop_words = stop_words_content.splitlines()
 
-    return stemmed_tokens
+        # Remove stop words
+        stop_words_removed = list(
+            filter(lambda token: token not in stop_words, tokens))
+
+        # Reduce each token to it's root.
+        stemmer = PorterStemmer()
+        stemmed_tokens = list(
+            map(lambda token: stemmer.stem(token), stop_words_removed))
+
+        return stemmed_tokens
