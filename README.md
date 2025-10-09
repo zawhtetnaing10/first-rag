@@ -1,1 +1,1 @@
-Frist RAG (Retrieval Augmented Generation) project.
+First RAG (Retrieval Augmented Generation) project.
