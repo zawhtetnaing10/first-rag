@@ -72,6 +72,33 @@ class SemanticSearch:
             # If it isn't, rebuild the embeddings and return the result
             return self.build_embeddings(documents)
 
+    # Semantic search
+    def search(self, query, limit):
+        if len(self.embeddings) == 0:
+            raise ValueError(
+                "No embeddings loaded. Call `load_or_create_embeddings` first.")
+
+        # Embed the query
+        q_embedding = self.generate_embedding(query)
+
+        # Similarity tuples. (similarity_score, document)
+        similarity_tuples = []
+        for index, doc_embedding in enumerate(self.embeddings):
+            similarity_score = cosine_similarity(q_embedding, doc_embedding)
+            document = self.documents[index]
+
+            similarity_tuples.append((similarity_score, document))
+
+        # Sort by similarity score descending.
+        similarity_tuples.sort(key=lambda tuple: tuple[0], reverse=True)
+
+        # Return top results up to limit. The results are converted to a dictionary.
+        return [{
+            "score": similarity_tuple[0],
+            "title": similarity_tuple[1]["title"],
+            "description": similarity_tuple[1]["description"]
+        } for similarity_tuple in similarity_tuples[:limit]]
+
 
 def verify_embeddings():
     semantic_search = SemanticSearch()
@@ -87,6 +114,17 @@ def verify_embeddings():
         print(f"Number of docs:   {len(documents)}")
         print(
             f"Embeddings shape: {embeddings.shape[0]} vectors in {embeddings.shape[1]} dimensions")
+
+
+def cosine_similarity(vec1, vec2):
+    dot_product = np.dot(vec1, vec2)
+    norm1 = np.linalg.norm(vec1)
+    norm2 = np.linalg.norm(vec2)
+
+    if norm1 == 0 or norm2 == 0:
+        return 0.0
+
+    return dot_product / (norm1 * norm2)
 
 
 def embed_query_text(query):
