@@ -8,6 +8,7 @@ from google import genai
 
 import lib.hybrid_search.hybrid_search as hybrid_search
 import lib.utils.prompt_utils as prompt_utils
+import lib.utils.genai_utils as genai_utils
 
 from sentence_transformers import CrossEncoder
 
@@ -22,7 +23,7 @@ def handle_normalize(scores):
 
     # Print
     for result in result:
-        print(f"* {result:.4f}")
+        print(f"* {result:.3f}")
 
 
 def handle_weighted_search(query, alpha, limit):
@@ -41,13 +42,13 @@ def handle_weighted_search(query, alpha, limit):
 
         for index, result in enumerate(results):
             print(f"{index + 1}. {result["title"]}")
-            print(f"\t Hybrid Score: {result["hybrid_score"]:.4f}")
+            print(f"\t Hybrid Score: {result["hybrid_score"]:.3f}")
             print(
-                f"\t BM25: {result["normalized_bm25"]:.4f}, Semantic: {result["normalized_semantic"]:.4f}")
+                f"\t BM25: {result["normalized_bm25"]:.3f}, Semantic: {result["normalized_semantic"]:.3f}")
             print(f"\t {result["description"]}")
 
 
-def handle_rrf_search(query, k, limit, enhance, rerank):
+def handle_rrf_search(query, k, limit, enhance, rerank, evaluate):
     """
         Do a rrf search using hybrid_search
     """
@@ -60,31 +61,15 @@ def handle_rrf_search(query, k, limit, enhance, rerank):
         movies_json = json.load(f)
         documents = movies_json["movies"]
 
-        # Initialize the LLM
-        # Load api key from env
-        load_dotenv()
-        api_key = os.environ.get("GEMINI_API_KEY")
-        print(f"Using key {api_key[:6]}...")
-
-        # Prepare genai client.
-        client = genai.Client(api_key=api_key)
-
-        # Enhance the query if needed
-        enhanced_query = enhance_query(query, enhance, client)
-
         search_obj = hybrid_search.HybridSearch(documents)
 
-        # Prepare the result
-        results = []
-        if rerank is not None and len(rerank) > 0:
-            # If there's a rerank method, get 500 times the result of the limit.
-            results = search_obj.rrf_search(enhanced_query, k, limit * 5)
-
-            # Actually rerank here
-            results = rerank_results(
-                query, results.copy(), rerank, client, limit)
-        else:
-            results = search_obj.rrf_search(enhanced_query, k, limit)
+        results, enhanced_query = search_obj.rrf_search_with_enhance_and_query(
+            query=query,
+            k=k,
+            limit=limit,
+            enhance=enhance,
+            rerank=rerank
+        )
 
         # If enhance method is not empty. Print it out for the user to see
         if enhance is not None and len(enhance) > 0:
@@ -110,130 +95,30 @@ def handle_rrf_search(query, k, limit, enhance, rerank):
                     print(
                         f"\t Cross Encoder Score: {result["cross_encoder_score"]}")
 
-            print(f"\t RRF Score: {result["rrf_score"]:.4f}")
+            print(f"\t RRF Score: {result["rrf_score"]:.3f}")
             print(
                 f"\t BM25 Rank: {result["bm25_rank"]}, Semantic Rank: {result["semantic_rank"]}")
             print(f"\t {result["description"]}")
 
+        # Evaluation starts here
+        if evaluate:
+            client = genai_utils.get_gemini_client()
 
-def enhance_query(query, enhance, client: genai.Client) -> str:
-    """
-        Enhance query according to enhance parameter.
-        enhance -> "spell" - Let LLM fix the spelling
-    """
-    if enhance == "spell":
-        # Prompt to fix query
-        prompt = prompt_utils.get_enhance_spell_prompt(query)
-        # Let gemini fix the typo
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-001", contents=prompt)
+            # Create a prompt and generate the scores
+            prompt = prompt_utils.get_evaluate_prompt(query, results)
+            response_text = genai_utils.generate_contents(
+                prompt=prompt, client=client)
 
-        # Return the fixed query
-        return response.text
-    elif enhance == "rewrite":
-        # Prompt to fix query
-        prompt = prompt_utils.get_enhance_rewrite_prompt(query)
-        # Let gemini rewrite the query
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-001", contents=prompt)
+            # Parse the response
+            eval_scores = json.loads(
+                genai_utils.remove_hardcoded_json_symbols(response_text))
 
-        # Return the fixed query
-        return response.text
-    elif enhance == "expand":
-        # Prompt to fix query
-        prompt = prompt_utils.get_enhance_expand_prompt(query)
-        # Let gemini expand the query
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-001", contents=prompt)
+            # Print out the scores
+            for i in range(len(eval_scores)):
+                score = eval_scores[i]
+                doc = results[i]
 
-        # Return the fixed query
-        return response.text
-    else:
-        # If nothing is provided, just return the original query.
-        return query
-
-
-def rerank_results(query, results, rerank, client: genai.Client, limit):
-    """
-        Rerank the results based on LLM
-    """
-    if rerank == "individual":
-        # Generate rerank score using LLM for each doc
-        for doc in results:
-            prompt = prompt_utils.get_individual_rerank_prompt(query, doc)
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-001", contents=prompt)
-            rerank_score = float(response.text)
-            doc["rerank_score"] = rerank_score
-            # Sleep before each gen ai call.
-            time.sleep(5)
-
-        # Sort by rerank score
-        results.sort(
-            key=lambda result: result["rerank_score"], reverse=True)
-
-        # Return the limited results
-        return results[:limit]
-
-    elif rerank == "batch":
-        # Do a batch re-ranking
-        prompt = prompt_utils.get_batch_rerank_prompt(query, results)
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-001", contents=prompt)
-        try:
-            print(f"LLM Batch Rerank response {response.text}")
-            # Bootdev run and submits are failing without replacing the strings
-            reranked_ids = json.loads(response.text)
-
-            # convert results into a dict
-            result_dict = {}
-            for result in results:
-                result_dict[result["id"]] = result
-
-            # Update the rank each doc
-            for index, id in enumerate(reranked_ids):
-                result_doc = result_dict[id]
-                result_doc["rerank_rank"] = index + 1
-
-            # Get the values Sort with rerank_rank
-            ranked_results = list(result_dict.values())
-            ranked_results.sort(key=lambda result: result["rerank_rank"])
-
-            # Return the limited results
-            return ranked_results[:limit]
-
-        except json.JSONDecodeError as e:
-            print("Failed to parse the reranked ids")
-            exit(1)
-    elif rerank == "cross_encoder":
-        # Do a cross encoder reranking
-
-        # Create pairs of query and doc-title + doc-description
-        pairs = []
-        for doc in results:
-            pairs.append(
-                [query, f"{doc.get('title', '')} - {doc.get('description', '')}"])
-
-        # Create cross encoder instance
-        cross_encoder = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L2-v2")
-
-        # Cross encoded scores
-        scores = cross_encoder.predict(pairs).tolist()
-
-        # Add cross encoder score to each doc
-        for index, score in enumerate(scores):
-            doc = results[index]
-            doc["cross_encoder_score"] = score
-
-        # Sort the docs by cross encoder score
-        results.sort(
-            key=lambda result: result["cross_encoder_score"], reverse=True)
-
-        return results[:limit]
-
-    else:
-        return results
+                print(f"{i + 1}. {doc["title"]}: {score}/3")
 
 
 def main() -> None:
@@ -274,6 +159,9 @@ def main() -> None:
     rrf_search_parser.add_argument(
         "--rerank-method", type=str, choices=["individual", "batch", "cross_encoder"], help="Rerank method."
     )
+    rrf_search_parser.add_argument(
+        "--evaluate", action="store_true", default=False, help="Let LLM evaluate the result."
+    )
 
     args = parser.parse_args()
 
@@ -284,7 +172,7 @@ def main() -> None:
             handle_weighted_search(args.query, args.alpha, args.limit)
         case "rrf-search":
             handle_rrf_search(args.query, args.k, args.limit,
-                              args.enhance, args.rerank_method)
+                              args.enhance, args.rerank_method, args.evaluate)
         case _:
             parser.print_help()
 
