@@ -2,8 +2,6 @@ import json
 import string
 from nltk.stem import PorterStemmer
 
-import inverted_index
-
 
 def keyword_search(query, inv_index):
     # Runs from root
@@ -90,6 +88,11 @@ def process_text(text: str):
     # Tokenization
     tokens = removed_punctuation.split()
 
+    valid_tokens = []
+    for token in tokens:
+        if token:
+            valid_tokens.append(token)
+
     # Load stop words
     stop_words_path = "data/stopwords.txt"
     with open(stop_words_path, 'r') as s:
@@ -100,7 +103,7 @@ def process_text(text: str):
 
         # Remove stop words
         stop_words_removed = list(
-            filter(lambda token: token not in stop_words, tokens))
+            filter(lambda token: token not in stop_words, valid_tokens))
 
         # Reduce each token to it's root.
         stemmer = PorterStemmer()

@@ -2,9 +2,9 @@
 
 import argparse
 import math
-import inverted_index
-import search_utils
-import keyword_search
+import lib.utils.search_utils as search_utils
+import lib.keyword_search.keyword_search as keyword_search
+import lib.keyword_search.inverted_index as inverted_index
 
 
 def handle_search(inv_index, query):

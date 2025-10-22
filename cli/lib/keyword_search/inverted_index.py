@@ -3,8 +3,8 @@ import json
 import math
 import os
 import pickle
-import keyword_search
-import search_utils
+import lib.keyword_search.keyword_search as keyword_search
+import lib.utils.search_utils as search_utils
 
 
 class InvertedIndex:
@@ -13,6 +13,7 @@ class InvertedIndex:
         self.docmap = {}
         self.term_frequencies = {}
         self.doc_lengths = {}
+        self.index_path = "cache/index.pkl"
 
     # Save document ids for a given text separated into tokens.
     def __add_document(self, doc_id: int, text: str):
@@ -66,7 +67,7 @@ class InvertedIndex:
         tokens = keyword_search.process_text(term)
         if len(tokens) > 1:
             raise Exception("There must be only one token")
-        term_docs = self.index.get(tokens[0])
+        term_docs = self.index.get(tokens[0], {})
         term_doc_count = len(term_docs)  # This is df
 
         # N
