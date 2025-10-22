@@ -218,8 +218,6 @@ def semantic_chunk(text: str, chunk_size: int, overlap: int):
             if len(trimmed_sentence) > 0:
                 temp_list.append(sentence)
 
-            temp_list.append(sentence)
-
     # Add the leftover sentences
     if len(temp_list) > 0:
         resulting_list.append(temp_list)
@@ -230,3 +228,35 @@ def semantic_chunk(text: str, chunk_size: int, overlap: int):
     ]
 
     return result
+
+# def semantic_chunk(
+#     text: str,
+#     max_chunk_size: int,
+#     overlap: int,
+# ) -> list[str]:
+#     text = text.strip()
+
+#     if not text:
+#         return []
+
+#     sentences = re.split(r"(?<=[.!?])\s+", text)
+
+#     if len(sentences) == 1 and not text.endswith((".", "!", "?")):
+#         sentences = [text]
+
+#     chunks = []
+#     i = 0
+#     n_sentences = len(sentences)
+
+#     while i < n_sentences - overlap:
+#         chunk_sentences = sentences[i: i + max_chunk_size]
+#         cleaned_sentences = []
+#         for chunk_sentence in chunk_sentences:
+#             cleaned_sentences.append(chunk_sentence.strip())
+#         if not cleaned_sentences:
+#             continue
+#         chunk = " ".join(cleaned_sentences)
+#         chunks.append(chunk)
+#         i += max_chunk_size - overlap
+
+#     return chunks
