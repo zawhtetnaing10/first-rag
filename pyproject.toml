@@ -7,5 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "nltk==3.9.1",
     "numpy>=2.3.3",
+    "pillow>=11.3.0",
     "sentence-transformers>=5.1.1",
 ]
