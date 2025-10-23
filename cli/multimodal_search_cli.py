@@ -13,7 +13,17 @@ def main():
         "verify_image_embedding", help="Verify the image embeddings."
     )
     verify_image_embedding_parser.add_argument(
-        "image_path",
+        "image",
+        type=str,
+        help="Path to the image file.",
+    )
+
+    # Image Search
+    image_search_parser = subparsers.add_parser(
+        "image_search", help="Search using an image."
+    )
+    image_search_parser.add_argument(
+        "image",
         type=str,
         help="Path to the image file.",
     )
@@ -22,7 +32,16 @@ def main():
 
     match args.command:
         case "verify_image_embedding":
-            multimodal_search.verify_image_embedding(args.image_path)
+            multimodal_search.verify_image_embedding(args.image)
+        case "image_search":
+            results = multimodal_search.image_search_command(args.image)
+
+            # Print out the results
+            for index, result in enumerate(results):
+                print(
+                    f"{index + 1}. {result["title"]} (similarity: {result["similarity"]:.3f})")
+                print(f"   {result["description"][:100]}...")
+
         case _:
             parser.print_help()
 
