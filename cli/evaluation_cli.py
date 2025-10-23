@@ -35,7 +35,7 @@ def main():
             # Run the search for each query and get the results
             search_obj = HybridSearch(movies)
             search_results, _ = search_obj.rrf_search_with_enhance_and_query(
-                query=query, k=60.0, limit=limit, enhance=None, rerank=None)
+                query=query, k=60.0, enhance=None, rerank=None)
             search_result_titles = [
                 result["title"] for result in search_results
             ]

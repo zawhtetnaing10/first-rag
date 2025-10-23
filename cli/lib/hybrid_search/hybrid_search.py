@@ -121,7 +121,7 @@ class HybridSearch:
         # Return the limited results
         return result[:limit]
 
-    def rrf_search_with_enhance_and_query(self, query, k, limit, enhance, rerank):
+    def rrf_search_with_enhance_and_query(self, query, k, enhance, rerank, limit=10):
         """
             Do a rrf search with enhance and query
         """

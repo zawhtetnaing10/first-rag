@@ -25,6 +25,15 @@ def generate_contents(prompt, client: genai.Client) -> str:
     return response.text
 
 
+def generate_contents_with_parts(parts, client: genai.Client) -> genai.types.GenerateContentResponse:
+    """
+        Generate response from llm using parts.
+    """
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-001", contents=parts)
+    return response
+
+
 def remove_hardcoded_json_symbols(response_text: str) -> str:
     """
         Remove ``` and json from string for json.loads()
